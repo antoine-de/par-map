@@ -20,6 +20,10 @@ use std::sync::Arc;
 use futures::Future;
 use futures_cpupool::{CpuPool, CpuFuture};
 
+pub trait NbThread {
+    fn nb_thread(&self) -> usize;
+}
+
 /// This trait extends `std::iter::Iterator` with parallel
 /// iterator adaptors.  Just `use` it to get access to the methods:
 ///
@@ -66,7 +70,7 @@ pub trait ParMap: Iterator + Sized {
         B: Send + 'static,
         Self::Item: Send + 'static,
     {
-        let num_threads = num_cpus::get();
+        let num_threads = self.nb_thread();
         let mut res = Map {
             pool: CpuPool::new(num_threads),
             queue: VecDeque::new(),
@@ -104,7 +108,7 @@ pub trait ParMap: Iterator + Sized {
         U::Item: Send + 'static,
         Self::Item: Send + 'static,
     {
-        let num_threads = num_cpus::get();
+        let num_threads = self.nb_thread();
         let mut res = FlatMap {
             pool: CpuPool::new(num_threads),
             queue: VecDeque::new(),
@@ -192,8 +196,19 @@ pub trait ParMap: Iterator + Sized {
         };
         Box::new(self.pack(nb).par_flat_map(f))
     }
+
+
+    fn nb_thread(&self) -> usize {
+        num_cpus::get()
+    }
 }
 impl<I: Iterator> ParMap for I {}
+
+impl<I: Iterator> NbThread for I {
+    fn nb_thread(&self) -> usize {
+        num_cpus::get()
+    }
+}
 
 /// An iterator that maps the values of `iter` with `f`.
 ///
@@ -312,5 +327,26 @@ impl<I: Iterator> Iterator for Pack<I> {
     fn next(&mut self) -> Option<Self::Item> {
         let item: Vec<_> = self.iter.by_ref().take(self.nb).collect();
         if item.is_empty() { None } else { Some(item) }
+    }
+}
+
+#[must_use = "iterator adaptors are lazy and do nothing unless consumed"]
+pub struct NbThreadIter<I> {
+    iter: I,
+    nb_thread: usize,
+}
+impl<I: Iterator> ParMap for NbThreadIter<I> {
+    fn nb_thread(&self) -> usize {
+        self.nb_thread
+    }
+}
+
+impl<I: Iterator> Iterator for NbThreadIter<I> {
+    type Item = I::Item;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
     }
 }
