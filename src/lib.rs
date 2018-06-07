@@ -20,10 +20,6 @@ use std::sync::Arc;
 use futures::Future;
 use futures_cpupool::{CpuPool, CpuFuture};
 
-pub trait NbThread {
-    fn nb_thread(&self) -> usize;
-}
-
 /// This trait extends `std::iter::Iterator` with parallel
 /// iterator adaptors.  Just `use` it to get access to the methods:
 ///
@@ -203,12 +199,6 @@ pub trait ParMap: Iterator + Sized {
     }
 }
 impl<I: Iterator> ParMap for I {}
-
-impl<I: Iterator> NbThread for I {
-    fn nb_thread(&self) -> usize {
-        num_cpus::get()
-    }
-}
 
 /// An iterator that maps the values of `iter` with `f`.
 ///
